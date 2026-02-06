@@ -1,0 +1,11 @@
+{
+  "name": "Logo Soup",
+  "id": "figma-logo-soup",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "src/ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["https://img.logo.dev"]
+  }
+}
