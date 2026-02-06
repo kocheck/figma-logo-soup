@@ -1,5 +1,6 @@
 import type { UIMessage, PluginMessage, LogoAnalysis, GridConfig } from "./utils/types";
 import { calculateGridLayout } from "./utils/grid-layout";
+import { calculateNudge } from "./utils/visual-center";
 
 const STORAGE_KEY_TOKEN = "logo-soup-api-token";
 
@@ -90,12 +91,54 @@ async function handleGenerateGrid(
     frame.x = Math.round(figma.viewport.center.x - frameWidth / 2);
     frame.y = Math.round(figma.viewport.center.y);
 
-    figma.currentPage.appendChild(frame);
-    figma.currentPage.selection = [frame];
-    figma.viewport.scrollAndZoomIntoView([frame]);
+    // Optionally convert to component
+    let resultNode: SceneNode = frame;
+    if (config.exportAsComponent) {
+      const component = figma.createComponent();
+      component.name = "Logo Soup";
+      component.layoutMode = "HORIZONTAL";
+      component.layoutWrap = "WRAP";
+      component.primaryAxisSizingMode = "FIXED";
+      component.counterAxisSizingMode = "AUTO";
+      component.itemSpacing = config.gap;
+      component.counterAxisSpacing = config.gap;
+      component.paddingLeft = config.gap;
+      component.paddingRight = config.gap;
+      component.paddingTop = config.gap;
+      component.paddingBottom = config.gap;
+      component.fills = [];
+      component.resize(frameWidth, 100);
+
+      // Move children from frame to component
+      const children = [...frame.children];
+      for (const child of children) {
+        component.appendChild(child);
+      }
+
+      component.x = frame.x;
+      component.y = frame.y;
+      frame.remove();
+      resultNode = component;
+    }
+
+    figma.currentPage.appendChild(resultNode);
+    figma.currentPage.selection = [resultNode];
+    figma.viewport.scrollAndZoomIntoView([resultNode]);
 
     sendToUI({ type: "complete" });
-    figma.notify(`Logo Soup: ${logos.length} logos generated`);
+    const word = logos.length === 1 ? "logo" : "logos";
+    const suffix = config.exportAsComponent ? " (Component)" : "";
+    const undoTarget = resultNode;
+    figma.notify(`Logo Soup: ${logos.length} ${word} generated${suffix}`, {
+      timeout: 10000,
+      button: {
+        text: "Undo",
+        action: () => {
+          undoTarget.remove();
+          figma.notify("Logo Soup removed");
+        },
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     sendToUI({ type: "error", message });
@@ -106,13 +149,14 @@ async function createLogoNode(
   logo: LogoAnalysis,
   config: GridConfig,
 ): Promise<FrameNode> {
+  const w = Math.round(logo.normalizedWidth);
+  const h = Math.round(logo.normalizedHeight);
+
   const container = figma.createFrame();
   container.name = logo.domain;
-  container.resize(
-    Math.round(logo.normalizedWidth),
-    Math.round(logo.normalizedHeight),
-  );
+  container.resize(w, h);
   container.fills = [];
+  container.clipsContent = true;
 
   // Fetch the image via Figma's built-in image fetcher
   const image = await figma.createImageAsync(logo.url);
@@ -120,10 +164,7 @@ async function createLogoNode(
   // Create the image rectangle
   const rect = figma.createRectangle();
   rect.name = `${logo.domain}-image`;
-  rect.resize(
-    Math.round(logo.normalizedWidth),
-    Math.round(logo.normalizedHeight),
-  );
+  rect.resize(w, h);
   rect.fills = [
     {
       type: "IMAGE",
@@ -131,6 +172,20 @@ async function createLogoNode(
       scaleMode: "FIT",
     },
   ];
+
+  // Apply visual center nudge
+  if (config.alignBy && config.alignBy !== "bounds") {
+    const { nudgeX, nudgeY } = calculateNudge(
+      logo.visualCenter,
+      logo.naturalWidth,
+      logo.naturalHeight,
+      w,
+      h,
+      config.alignBy,
+    );
+    rect.x = Math.round(nudgeX);
+    rect.y = Math.round(nudgeY);
+  }
 
   container.appendChild(rect);
   return container;

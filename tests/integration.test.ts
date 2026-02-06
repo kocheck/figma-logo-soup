@@ -56,6 +56,8 @@ const defaultConfig: GridConfig = {
   scaleFactor: 0.5,
   densityAware: true,
   densityFactor: 0.5,
+  exportAsComponent: false,
+  alignBy: "bounds",
 };
 
 describe("Integration: Full Pipeline", () => {

@@ -33,9 +33,36 @@ const mockFigma = {
     paddingTop: 0,
     paddingBottom: 0,
     fills: [],
+    clipsContent: false,
     x: 0,
     y: 0,
-    appendChild: vi.fn(),
+    children: [] as unknown[],
+    appendChild: vi.fn(function (this: { children: unknown[] }, child: unknown) {
+      this.children.push(child);
+    }),
+    remove: vi.fn(),
+  })),
+  createComponent: vi.fn(() => ({
+    name: "",
+    resize: vi.fn(),
+    layoutMode: "NONE",
+    layoutWrap: "NO_WRAP",
+    primaryAxisSizingMode: "AUTO",
+    counterAxisSizingMode: "AUTO",
+    itemSpacing: 0,
+    counterAxisSpacing: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    fills: [],
+    x: 0,
+    y: 0,
+    children: [] as unknown[],
+    appendChild: vi.fn(function (this: { children: unknown[] }, child: unknown) {
+      this.children.push(child);
+    }),
+    remove: vi.fn(),
   })),
   createRectangle: vi.fn(() => ({
     name: "",

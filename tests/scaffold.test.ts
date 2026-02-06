@@ -16,6 +16,7 @@ describe("Phase 1: Project Scaffolding", () => {
     expect(manifest.networkAccess.allowedDomains).toContain(
       "https://img.logo.dev",
     );
+    expect(manifest.documentAccess).toBe("dynamic-page");
   });
 
   it("tsconfig.json has strict mode enabled", () => {

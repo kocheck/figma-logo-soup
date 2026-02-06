@@ -225,6 +225,126 @@
     .hidden {
       display: none;
     }
+
+    /* Domain list items for drag-to-reorder */
+    .domain-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .domain-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px;
+      background: var(--figma-color-bg-secondary, #f5f5f5);
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: grab;
+      user-select: none;
+      transition: background 0.1s;
+    }
+
+    .domain-item:active {
+      cursor: grabbing;
+    }
+
+    .domain-item.dragging {
+      opacity: 0.5;
+      background: var(--figma-color-bg-hover, #e8e8e8);
+    }
+
+    .domain-item.drag-over {
+      border-top: 2px solid var(--figma-color-border-brand, #18a0fb);
+    }
+
+    .domain-item .drag-handle {
+      color: var(--figma-color-text-tertiary, #aaa);
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .domain-item .domain-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .domain-item .remove-btn {
+      background: none;
+      border: none;
+      color: var(--figma-color-text-tertiary, #aaa);
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 12px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .domain-item .remove-btn:hover {
+      color: var(--figma-color-text-danger, #f24822);
+    }
+
+    .add-domain-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .add-domain-row input {
+      flex: 1;
+    }
+
+    .add-domain-row button {
+      flex-shrink: 0;
+    }
+
+    /* Loading spinner on generate button */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-primary.loading {
+      position: relative;
+      pointer-events: none;
+    }
+
+    .btn-primary.loading::after {
+      content: "";
+      width: 12px;
+      height: 12px;
+      margin-left: 8px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: inline-block;
+      vertical-align: middle;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* Tooltip icon for advanced fields */
+    .tooltip {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      line-height: 14px;
+      text-align: center;
+      border-radius: 50%;
+      background: var(--figma-color-bg-secondary, #eee);
+      color: var(--figma-color-text-tertiary, #999);
+      font-size: 9px;
+      cursor: help;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* Domain list empty state */
+    .domain-list-empty {
+      padding: 12px;
+      text-align: center;
+      color: var(--figma-color-text-tertiary, #aaa);
+      font-size: 10px;
+    }
   </style>
 </head>
 <body>
@@ -237,10 +357,12 @@
         id="token-input"
         placeholder="pk_..."
         autocomplete="off"
+        aria-label="Logo.dev API token"
+        aria-describedby="token-status"
       />
       <button class="btn-secondary" id="save-token-btn">Save</button>
     </div>
-    <div class="status" id="token-status"></div>
+    <div class="status" id="token-status" role="status" aria-live="polite"></div>
   </div>
 
   <hr class="divider" />
@@ -249,15 +371,18 @@
   <div class="section">
     <div class="section-header">
       <h2>Logos</h2>
+      <button class="btn-secondary" id="clear-all-btn">Clear</button>
       <button class="btn-secondary" id="add-popular-btn">+ Popular</button>
     </div>
     <div class="field">
-      <label for="domains-input">Domains (one per line or comma-separated)</label>
-      <textarea
-        id="domains-input"
-        placeholder="stripe.com&#10;github.com&#10;figma.com&#10;google.com"
-        rows="5"
-      ></textarea>
+      <label>Domains</label>
+      <div class="domain-list" id="domain-list" role="list" aria-label="Domain list">
+        <!-- Populated by JS -->
+      </div>
+      <div class="add-domain-row">
+        <input type="text" id="add-domain-input" placeholder="stripe.com" aria-label="Add domain" />
+        <button class="btn-secondary" id="add-domain-btn">Add</button>
+      </div>
     </div>
     <div class="presets" id="presets-container">
       <!-- Populated by JS -->
@@ -317,17 +442,35 @@
     <h2>Normalization</h2>
     <div class="row">
       <div class="field">
-        <label for="scale-factor-input">Scale Factor</label>
+        <label for="scale-factor-input">Scale Factor <span class="tooltip" title="0 = same width, 1 = same height, 0.5 = balanced">?</span></label>
         <input type="number" id="scale-factor-input" value="0.5" min="0" max="1" step="0.1" />
       </div>
       <div class="field">
-        <label for="density-factor-input">Density Factor</label>
+        <label for="density-factor-input">Density Factor <span class="tooltip" title="0 = pure aspect ratio, 1 = density dominant, 0.5 = balanced">?</span></label>
         <input type="number" id="density-factor-input" value="0.5" min="0" max="1" step="0.1" />
       </div>
     </div>
     <div class="checkbox-row">
       <input type="checkbox" id="density-aware-check" checked />
       <label for="density-aware-check">Density-Aware Scaling</label>
+    </div>
+    <div class="field">
+      <label for="align-by-select">Align By</label>
+      <select id="align-by-select">
+        <option value="bounds">Bounds (geometric center)</option>
+        <option value="visual-center-y" selected>Visual Center Y</option>
+        <option value="visual-center-x">Visual Center X</option>
+        <option value="visual-center-xy">Visual Center XY</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Output Options -->
+  <div class="section">
+    <h2>Output</h2>
+    <div class="checkbox-row">
+      <input type="checkbox" id="export-component-check" />
+      <label for="export-component-check">Export as Figma Component</label>
     </div>
   </div>
 
@@ -338,7 +481,7 @@
   <div class="progress-bar" id="progress-bar">
     <div class="progress-bar-fill" id="progress-fill"></div>
   </div>
-  <div class="status" id="status-text"></div>
+  <div class="status" id="status-text" role="status" aria-live="polite"></div>
 
   <!-- Hidden canvas for image analysis -->
   <canvas id="analysis-canvas" class="hidden"></canvas>
@@ -350,7 +493,10 @@
     const tokenInput = document.getElementById('token-input');
     const saveTokenBtn = document.getElementById('save-token-btn');
     const tokenStatus = document.getElementById('token-status');
-    const domainsInput = document.getElementById('domains-input');
+    const domainList = document.getElementById('domain-list');
+    const addDomainInput = document.getElementById('add-domain-input');
+    const addDomainBtn = document.getElementById('add-domain-btn');
+    const clearAllBtn = document.getElementById('clear-all-btn');
     const addPopularBtn = document.getElementById('add-popular-btn');
     const presetsContainer = document.getElementById('presets-container');
     const columnsInput = document.getElementById('columns-input');
@@ -362,12 +508,20 @@
     const scaleFactorInput = document.getElementById('scale-factor-input');
     const densityFactorInput = document.getElementById('density-factor-input');
     const densityAwareCheck = document.getElementById('density-aware-check');
+    const alignBySelect = document.getElementById('align-by-select');
+    const exportComponentCheck = document.getElementById('export-component-check');
     const generateBtn = document.getElementById('generate-btn');
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     const statusText = document.getElementById('status-text');
     const analysisCanvas = document.getElementById('analysis-canvas');
     const ctx = analysisCanvas.getContext('2d');
+
+    // Domain list state
+    let domains = [];
+
+    // Analysis cache: URL → analysis result (survives regeneration)
+    const logoCache = new Map();
 
     // ============================
     // Popular Logo Presets
@@ -389,8 +543,122 @@
     });
 
     // ============================
-    // Utility Functions
+    // Domain List Management
     // ============================
+
+    function renderDomainList() {
+      domainList.textContent = '';
+
+      if (domains.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'domain-list-empty';
+        empty.textContent = 'No domains added yet. Type a domain below or click + Popular.';
+        domainList.appendChild(empty);
+        return;
+      }
+
+      domains.forEach((domain, index) => {
+        const item = document.createElement('div');
+        item.className = 'domain-item';
+        item.draggable = true;
+        item.setAttribute('role', 'listitem');
+        item.setAttribute('tabindex', '0');
+        item.setAttribute('aria-label', domain + ', drag to reorder');
+        item.dataset.index = String(index);
+
+        const handle = document.createElement('span');
+        handle.className = 'drag-handle';
+        handle.textContent = '\u2630';
+        handle.setAttribute('aria-hidden', 'true');
+
+        const name = document.createElement('span');
+        name.className = 'domain-name';
+        name.textContent = domain;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.textContent = '\u00d7';
+        removeBtn.setAttribute('aria-label', 'Remove ' + domain);
+        removeBtn.dataset.index = String(index);
+
+        item.appendChild(handle);
+        item.appendChild(name);
+        item.appendChild(removeBtn);
+
+        // Drag events
+        item.addEventListener('dragstart', (e) => {
+          item.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(index));
+        });
+        item.addEventListener('dragend', () => {
+          item.classList.remove('dragging');
+          domainList.querySelectorAll('.domain-item').forEach(el =>
+            el.classList.remove('drag-over')
+          );
+        });
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over');
+        });
+        item.addEventListener('drop', (e) => {
+          e.preventDefault();
+          item.classList.remove('drag-over');
+          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+          const toIndex = index;
+          if (fromIndex !== toIndex) {
+            const [moved] = domains.splice(fromIndex, 1);
+            domains.splice(toIndex, 0, moved);
+            renderDomainList();
+          }
+        });
+
+        // Remove button
+        removeBtn.addEventListener('click', () => {
+          domains.splice(index, 1);
+          renderDomainList();
+        });
+
+        // Keyboard: Delete/Backspace to remove, arrow keys to navigate
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            domains.splice(index, 1);
+            renderDomainList();
+            // Focus next item or input
+            const nextItem = domainList.querySelector('.domain-item');
+            if (nextItem) nextItem.focus();
+            else addDomainInput.focus();
+          } else if (e.key === 'ArrowDown' && index < domains.length - 1) {
+            e.preventDefault();
+            const items = domainList.querySelectorAll('.domain-item');
+            if (items[index + 1]) items[index + 1].focus();
+          } else if (e.key === 'ArrowUp' && index > 0) {
+            e.preventDefault();
+            const items = domainList.querySelectorAll('.domain-item');
+            if (items[index - 1]) items[index - 1].focus();
+          }
+        });
+
+        domainList.appendChild(item);
+      });
+    }
+
+    function addDomain(domain) {
+      const clean = domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/+$/, '');
+      if (clean && !domains.includes(clean)) {
+        domains.push(clean);
+        renderDomainList();
+      }
+    }
 
     function parseDomains(input) {
       return input
@@ -399,12 +667,9 @@
         .filter(d => d.length > 0);
     }
 
-    function addDomain(domain) {
-      const current = parseDomains(domainsInput.value);
-      if (!current.includes(domain)) {
-        domainsInput.value = [...current, domain].join('\n');
-      }
-    }
+    // ============================
+    // Utility Functions
+    // ============================
 
     function getConfig() {
       return {
@@ -417,6 +682,8 @@
         scaleFactor: parseFloat(scaleFactorInput.value) || 0.5,
         densityAware: densityAwareCheck.checked,
         densityFactor: parseFloat(densityFactorInput.value) || 0.5,
+        exportAsComponent: exportComponentCheck.checked,
+        alignBy: alignBySelect.value,
       };
     }
 
@@ -475,7 +742,12 @@
       analysisCanvas.height = img.naturalHeight;
       ctx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
       ctx.drawImage(img, 0, 0);
-      return ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+      try {
+        return ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+      } catch (err) {
+        // CORS-tainted canvas — return blank ImageData as fallback
+        return new ImageData(img.naturalWidth || 1, img.naturalHeight || 1);
+      }
     }
 
     function calculateDensity(imageData) {
@@ -555,6 +827,17 @@
     async function analyzeLogo(domain, token, config) {
       const url = buildLogoUrl(domain, token, config);
 
+      // Check cache — reuse analysis if same URL already fetched
+      if (logoCache.has(url)) {
+        const cached = logoCache.get(url);
+        const normalizedWidth = calculateNormalizedWidth(cached.aspectRatio, config.scaleFactor, config.baseSize);
+        return {
+          ...cached,
+          normalizedWidth,
+          normalizedHeight: normalizedWidth / Math.max(cached.aspectRatio, 0.01),
+        };
+      }
+
       try {
         const img = await loadImage(url);
         const imageData = getImageData(img);
@@ -570,7 +853,7 @@
         );
         const normalizedHeight = normalizedWidth / Math.max(aspectRatio, 0.01);
 
-        return {
+        const result = {
           domain,
           url,
           naturalWidth: img.naturalWidth,
@@ -582,6 +865,10 @@
           normalizedWidth,
           normalizedHeight,
         };
+
+        // Cache the analysis (keyed by URL)
+        logoCache.set(url, result);
+        return result;
       } catch (err) {
         // Return fallback analysis for failed images
         return {
@@ -610,7 +897,6 @@
         return;
       }
 
-      const domains = parseDomains(domainsInput.value);
       if (domains.length === 0) {
         setStatus('Please enter at least one domain', 'error');
         return;
@@ -619,6 +905,8 @@
       const config = getConfig();
 
       generateBtn.disabled = true;
+      generateBtn.classList.add('loading');
+      generateBtn.textContent = 'Generating...';
       setStatus(`Analyzing ${domains.length} logos...`);
       setProgress(0, domains.length);
 
@@ -662,6 +950,8 @@
       } catch (err) {
         setStatus(`Error: ${err.message}`, 'error');
         generateBtn.disabled = false;
+        generateBtn.classList.remove('loading');
+        generateBtn.textContent = 'Generate Logo Soup';
         setProgress(0, 0);
       }
     }
@@ -677,18 +967,56 @@
         tokenStatus.className = 'status error';
         return;
       }
+      if (!token.startsWith('pk_')) {
+        tokenStatus.textContent = 'Token must start with pk_';
+        tokenStatus.className = 'status error';
+        return;
+      }
       parent.postMessage({ pluginMessage: { type: 'save-token', token } }, '*');
       tokenStatus.textContent = 'Token saved';
       tokenStatus.className = 'status success';
       setTimeout(() => { tokenStatus.textContent = ''; }, 2000);
     };
 
+    addDomainBtn.onclick = () => {
+      const val = addDomainInput.value.trim();
+      if (val) {
+        // Support comma/newline-separated bulk add
+        const newDomains = parseDomains(val);
+        newDomains.forEach(d => addDomain(d));
+        addDomainInput.value = '';
+      }
+    };
+
+    addDomainInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addDomainBtn.click();
+      }
+    });
+
     addPopularBtn.onclick = () => {
       const top8 = POPULAR_LOGOS.slice(0, 8);
-      const current = parseDomains(domainsInput.value);
-      const merged = [...new Set([...current, ...top8])];
-      domainsInput.value = merged.join('\n');
+      top8.forEach(d => addDomain(d));
     };
+
+    clearAllBtn.onclick = () => {
+      domains = [];
+      renderDomainList();
+    };
+
+    // Numeric input validation on blur — clamp to min/max
+    [columnsInput, baseSizeInput, gapInput, scaleFactorInput, densityFactorInput].forEach(input => {
+      input.addEventListener('blur', () => {
+        const min = parseFloat(input.min);
+        const max = parseFloat(input.max);
+        let val = parseFloat(input.value);
+        if (isNaN(val)) val = min;
+        if (val < min) val = min;
+        if (val > max) val = max;
+        input.value = val;
+      });
+    });
 
     generateBtn.onclick = handleGenerate;
 
@@ -716,15 +1044,22 @@
           setStatus('Logo Soup generated!', 'success');
           setProgress(0, 0);
           generateBtn.disabled = false;
+          generateBtn.classList.remove('loading');
+          generateBtn.textContent = 'Generate Logo Soup';
           break;
 
         case 'error':
           setStatus(`Error: ${msg.message}`, 'error');
           setProgress(0, 0);
           generateBtn.disabled = false;
+          generateBtn.classList.remove('loading');
+          generateBtn.textContent = 'Generate Logo Soup';
           break;
       }
     };
+
+    // Initialize empty domain list
+    renderDomainList();
 
     // Request stored token on load
     parent.postMessage({ pluginMessage: { type: 'load-token' } }, '*');

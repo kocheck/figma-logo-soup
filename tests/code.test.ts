@@ -36,6 +36,8 @@ const defaultConfig: GridConfig = {
   scaleFactor: 0.5,
   densityAware: true,
   densityFactor: 0.5,
+  exportAsComponent: false,
+  alignBy: "bounds",
 };
 
 describe("Plugin Sandbox (code.ts)", () => {
@@ -248,6 +250,7 @@ describe("Plugin Sandbox (code.ts)", () => {
 
       expect(mockFigma.notify).toHaveBeenCalledWith(
         "Logo Soup: 2 logos generated",
+        expect.objectContaining({ timeout: 10000 }),
       );
     });
 

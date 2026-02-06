@@ -7,6 +7,8 @@ export interface NormalizeOptions {
   densityFactor: number;
 }
 
+export type AlignBy = "bounds" | "visual-center-x" | "visual-center-y" | "visual-center-xy";
+
 export interface GridConfig {
   columns: number;
   baseSize: number;
@@ -17,6 +19,8 @@ export interface GridConfig {
   scaleFactor: number;
   densityAware: boolean;
   densityFactor: number;
+  exportAsComponent: boolean;
+  alignBy: AlignBy;
 }
 
 export interface ContentBounds {

@@ -1,4 +1,4 @@
-import type { VisualCenter } from "./types";
+import type { VisualCenter, AlignBy } from "./types";
 
 /**
  * Calculate the visual center of mass for an image.
@@ -67,4 +67,50 @@ export function calculateVisualCenter(imageData: {
     offsetX: visualX - geometricCenterX,
     offsetY: visualY - geometricCenterY,
   };
+}
+
+/**
+ * Calculate the x/y nudge to apply to a logo node so its visual center
+ * aligns with the geometric center of its container.
+ *
+ * The nudge is the negative of the visual center offset, scaled to the
+ * rendered size of the logo.
+ *
+ * @param visualCenter - visual center analysis from the original image
+ * @param naturalWidth - original image width (analysis resolution)
+ * @param naturalHeight - original image height (analysis resolution)
+ * @param renderedWidth - actual rendered width in Figma
+ * @param renderedHeight - actual rendered height in Figma
+ * @param alignBy - which axes to nudge
+ */
+export function calculateNudge(
+  visualCenter: VisualCenter,
+  naturalWidth: number,
+  naturalHeight: number,
+  renderedWidth: number,
+  renderedHeight: number,
+  alignBy: AlignBy,
+): { nudgeX: number; nudgeY: number } {
+  if (alignBy === "bounds") {
+    return { nudgeX: 0, nudgeY: 0 };
+  }
+
+  const scaleX = naturalWidth > 0 ? renderedWidth / naturalWidth : 1;
+  const scaleY = naturalHeight > 0 ? renderedHeight / naturalHeight : 1;
+
+  // Nudge is the negative of the offset (we shift the image opposite to
+  // where the visual center has drifted)
+  const rawNudgeX = -visualCenter.offsetX * scaleX;
+  const rawNudgeY = -visualCenter.offsetY * scaleY;
+
+  const nudgeX =
+    alignBy === "visual-center-x" || alignBy === "visual-center-xy"
+      ? rawNudgeX
+      : 0;
+  const nudgeY =
+    alignBy === "visual-center-y" || alignBy === "visual-center-xy"
+      ? rawNudgeY
+      : 0;
+
+  return { nudgeX, nudgeY };
 }

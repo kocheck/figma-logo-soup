@@ -26,6 +26,8 @@ describe("UI Logic: Config Validation", () => {
       scaleFactor: 0.5,
       densityAware: true,
       densityFactor: 0.5,
+      exportAsComponent: false,
+      alignBy: "visual-center-y",
     };
     expect(config.columns).toBeGreaterThan(0);
     expect(config.baseSize).toBeGreaterThan(0);
@@ -85,6 +87,8 @@ describe("UI Logic: Message Protocol", () => {
         scaleFactor: 0.5,
         densityAware: true,
         densityFactor: 0.5,
+        exportAsComponent: false,
+        alignBy: "visual-center-y" as const,
       },
       logos: [
         {

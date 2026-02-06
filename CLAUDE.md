@@ -35,7 +35,9 @@ figma-logo-soup/
 │   ├── url-builder.test.ts
 │   ├── grid-layout.test.ts
 │   ├── code.test.ts             # Plugin sandbox tests
-│   └── integration.test.ts      # Full flow tests
+│   ├── integration.test.ts      # Full flow tests
+│   ├── phase6.test.ts           # Phase 6 feature tests
+│   └── enhancements.test.ts     # v1.0 enhancement tests
 └── README.md
 ```
 
@@ -106,9 +108,26 @@ npm run typecheck      # tsc --noEmit
 - [x] Phase 3: Plugin Sandbox Core — COMPLETE (16 tests)
 - [x] Phase 4: Plugin UI — COMPLETE (9 tests)
 - [x] Phase 5: Integration & Polish — COMPLETE (9 tests)
-- [ ] Phase 6: Advanced Features (Optional)
+- [x] Phase 6: Advanced Features — COMPLETE (20 tests)
+  - [x] 6a: Export as Figma Component
+  - [x] 6b: Drag-to-Reorder domain list in UI
+  - [x] 6c: Visual Center Alignment Nudging
+  - [x] 6d: Tests for all Phase 6 features
 
-**Total: 117 tests passing across 10 test files**
+- [x] v1.0 Enhancements — COMPLETE (21 tests)
+  - [x] Token format validation (pk_ prefix)
+  - [x] Numeric input blur clamping (columns, baseSize, gap, scaleFactor, densityFactor)
+  - [x] CORS error boundary on canvas getImageData
+  - [x] Accessibility (ARIA labels, keyboard nav, live regions)
+  - [x] Undo support via figma.notify button
+  - [x] Loading spinner on generate button
+  - [x] Clear All domains button
+  - [x] Analysis caching (Map keyed by URL)
+  - [x] Singular/plural notification message
+  - [x] Empty state for domain list
+  - [x] Tooltips on Scale Factor and Density Factor
+
+**Total: 158 tests passing across 12 test files, 3.7kb dist/code.js**
 
 ---
 
@@ -158,8 +177,8 @@ npm run typecheck      # tsc --noEmit
 - Final error handling sweep
 - **Tests**: Integration tests for full message round-trip
 
-### Phase 6: Advanced Features (Optional)
-- Greyscale mode toggle
-- Export as Figma component
-- Drag-to-reorder in UI
-- Visual center alignment nudging
+### Phase 6: Advanced Features — COMPLETE
+- Export as Figma component (exportAsComponent config flag)
+- Drag-to-reorder domain list in UI (HTML5 Drag and Drop API)
+- Visual center alignment nudging (calculateNudge + alignBy config: bounds/visual-center-x/y/xy)
+- Greyscale mode (already wired via greyscale checkbox → URL builder → Logo.dev API)
