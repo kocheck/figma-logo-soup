@@ -2,6 +2,7 @@ import type { UIMessage, PluginMessage, GridConfig, CanvasLogo } from "./utils/t
 import { calculateNormalizedWidth, calculateNormalizedHeight } from "./utils/normalize";
 
 const DOMAIN_REGEX = /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})?$/;
+const FRAME_NAME = "Logo Soup";
 
 function extractNodeAsCanvasLogo(node: SceneNode): CanvasLogo {
   const isDomain = DOMAIN_REGEX.test(node.name);
@@ -25,7 +26,7 @@ function extractCanvasSelection(): void {
   const logos: CanvasLogo[] = [];
 
   for (const node of selection) {
-    if (node.name === "Logo Soup" && "children" in node) {
+    if (node.name === FRAME_NAME && "children" in node) {
       for (const child of (node as ChildrenMixin).children) {
         logos.push(extractNodeAsCanvasLogo(child as SceneNode));
       }
@@ -35,7 +36,7 @@ function extractCanvasSelection(): void {
   }
 
   const hasExistingGrid = figma.currentPage.children.some(
-    (n) => n.name === "Logo Soup"
+    (n) => n.name === FRAME_NAME
   );
 
   sendToUI({ type: "selection-detected", logos, hasExistingGrid });
@@ -52,6 +53,26 @@ figma.ui.onmessage = async (msg: UIMessage) => {
   }
 };
 
+function applyGridLayout(
+  node: FrameNode | ComponentNode,
+  config: GridConfig,
+  frameWidth: number,
+): void {
+  node.name = FRAME_NAME;
+  node.layoutMode = "HORIZONTAL";
+  node.layoutWrap = "WRAP";
+  node.primaryAxisSizingMode = "FIXED";
+  node.counterAxisSizingMode = "AUTO";
+  node.itemSpacing = config.gap;
+  node.counterAxisSpacing = config.gap;
+  node.paddingLeft = config.gap;
+  node.paddingRight = config.gap;
+  node.paddingTop = config.gap;
+  node.paddingBottom = config.gap;
+  node.fills = [];
+  node.resize(frameWidth, 100);
+}
+
 async function handleGenerateGrid(
   config: GridConfig,
   canvasLogos: CanvasLogo[],
@@ -64,37 +85,22 @@ async function handleGenerateGrid(
 
   try {
     const opts = { baseSize: config.baseSize, scaleFactor: config.scaleFactor };
-    const allNormalizedWidths = [
-      ...canvasLogos.map((cl) =>
-        calculateNormalizedWidth(cl.width > 0 && cl.height > 0 ? cl.width / cl.height : 1, opts)
-      ),
-      config.baseSize,
-    ];
-    const maxItemWidth = Math.max(...allNormalizedWidths);
+    const normalizedWidths = canvasLogos.map((cl) =>
+      calculateNormalizedWidth(cl.width > 0 && cl.height > 0 ? cl.width / cl.height : 1, opts)
+    );
+    const maxItemWidth = Math.max(...normalizedWidths);
     const frameWidth = maxItemWidth * config.columns + config.gap * (config.columns + 1);
 
     let frame: FrameNode;
     const existingFrame = appendToExisting
-      ? (figma.currentPage.children.find((n) => n.name === "Logo Soup") as FrameNode | undefined)
+      ? (figma.currentPage.children.find((n) => n.name === FRAME_NAME) as FrameNode | undefined)
       : undefined;
 
     if (existingFrame) {
       frame = existingFrame;
     } else {
       frame = figma.createFrame();
-      frame.name = "Logo Soup";
-      frame.layoutMode = "HORIZONTAL";
-      frame.layoutWrap = "WRAP";
-      frame.primaryAxisSizingMode = "FIXED";
-      frame.counterAxisSizingMode = "AUTO";
-      frame.itemSpacing = config.gap;
-      frame.counterAxisSpacing = config.gap;
-      frame.paddingLeft = config.gap;
-      frame.paddingRight = config.gap;
-      frame.paddingTop = config.gap;
-      frame.paddingBottom = config.gap;
-      frame.fills = [];
-      frame.resize(frameWidth, 100);
+      applyGridLayout(frame, config, frameWidth);
     }
 
     for (const cl of canvasLogos) {
@@ -113,19 +119,7 @@ async function handleGenerateGrid(
     let resultNode: SceneNode = frame;
     if (config.exportAsComponent) {
       const component = figma.createComponent();
-      component.name = "Logo Soup";
-      component.layoutMode = "HORIZONTAL";
-      component.layoutWrap = "WRAP";
-      component.primaryAxisSizingMode = "FIXED";
-      component.counterAxisSizingMode = "AUTO";
-      component.itemSpacing = config.gap;
-      component.counterAxisSpacing = config.gap;
-      component.paddingLeft = config.gap;
-      component.paddingRight = config.gap;
-      component.paddingTop = config.gap;
-      component.paddingBottom = config.gap;
-      component.fills = [];
-      component.resize(frameWidth, 100);
+      applyGridLayout(component, config, frameWidth);
 
       const children = [...frame.children];
       for (const child of children) {

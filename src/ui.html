@@ -143,28 +143,6 @@
       cursor: pointer;
     }
 
-    .progress-bar {
-      width: 100%;
-      height: 4px;
-      background: var(--figma-color-bg-secondary, #f0f0f0);
-      border-radius: 2px;
-      margin-top: var(--spacing-sm);
-      overflow: hidden;
-      display: none;
-    }
-
-    .progress-bar.visible {
-      display: block;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--figma-color-bg-brand, #18a0fb);
-      border-radius: 2px;
-      transition: width 0.2s ease;
-      width: 0%;
-    }
-
     .status {
       font-size: 10px;
       color: var(--figma-color-text-secondary, #666);
@@ -358,9 +336,6 @@
 
   <!-- Generate Button -->
   <button class="btn-primary" id="generate-btn">Generate Logo Soup</button>
-  <div class="progress-bar" id="progress-bar">
-    <div class="progress-bar-fill" id="progress-fill"></div>
-  </div>
   <div class="status" id="status-text" role="status" aria-live="polite"></div>
 
   <script>
@@ -375,8 +350,6 @@
     const scaleFactorInput = document.getElementById('scale-factor-input');
     const exportComponentCheck = document.getElementById('export-component-check');
     const generateBtn = document.getElementById('generate-btn');
-    const progressBar = document.getElementById('progress-bar');
-    const progressFill = document.getElementById('progress-fill');
     const statusText = document.getElementById('status-text');
 
     // Domain list state
@@ -596,22 +569,12 @@
       statusText.className = 'status' + (type ? ` ${type}` : '');
     }
 
-    function setProgress(current, total) {
-      if (total === 0) {
-        progressBar.classList.remove('visible');
-        return;
-      }
-      progressBar.classList.add('visible');
-      const pct = Math.round((current / total) * 100);
-      progressFill.style.width = `${pct}%`;
-    }
-
     // ============================
     // Main Generate Flow
     // ============================
 
     function handleGenerate() {
-      const canvasLogos = Array.from(canvasLogoMap.values());
+      const canvasLogos = domains.map(d => canvasLogoMap.get(d)).filter(Boolean);
 
       if (canvasLogos.length === 0) {
         setStatus('Select logos on the Figma canvas to get started', 'error');
@@ -681,20 +644,17 @@
             showSelectionBanner(logos.length);
           }
           if (logos.length > 0 || hasExistingGrid) {
-            appendToExisting = hasExistingGrid;
+            // Only initialise appendToExisting the first time — don't clobber a user's active choice
+            if (!document.getElementById('append-toggle')) {
+              appendToExisting = hasExistingGrid;
+            }
             renderAppendToggle();
           }
           break;
         }
 
-        case 'progress':
-          setStatus(`Placing ${msg.domain} (${msg.current}/${msg.total})...`);
-          setProgress(msg.current, msg.total);
-          break;
-
         case 'complete':
           setStatus('Logo Soup generated!', 'success');
-          setProgress(0, 0);
           generateBtn.disabled = false;
           generateBtn.classList.remove('loading');
           generateBtn.textContent = 'Generate Logo Soup';
@@ -702,7 +662,6 @@
 
         case 'error':
           setStatus(`Error: ${msg.message}`, 'error');
-          setProgress(0, 0);
           generateBtn.disabled = false;
           generateBtn.classList.remove('loading');
           generateBtn.textContent = 'Generate Logo Soup';

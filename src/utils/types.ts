@@ -35,7 +35,6 @@ export type UIMessage =
 
 // Message protocol: Plugin → UI
 export type PluginMessage =
-  | { type: "progress"; current: number; total: number; domain: string }
   | { type: "complete" }
   | { type: "error"; message: string }
   | { type: "selection-detected"; logos: CanvasLogo[]; hasExistingGrid: boolean };
