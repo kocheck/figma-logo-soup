@@ -1,10 +1,51 @@
-import type { UIMessage, PluginMessage, LogoAnalysis, GridConfig } from "./utils/types";
+import type { UIMessage, PluginMessage, LogoAnalysis, GridConfig, CanvasLogo } from "./utils/types";
 import { calculateGridLayout } from "./utils/grid-layout";
 import { calculateNudge } from "./utils/visual-center";
 
 const STORAGE_KEY_TOKEN = "logo-soup-api-token";
 
+const DOMAIN_REGEX = /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})?$/;
+
+function extractNodeAsCanvasLogo(node: SceneNode): CanvasLogo {
+  const isDomain = DOMAIN_REGEX.test(node.name);
+  const domain = isDomain ? node.name : "unknown";
+
+  let imageHash: string | undefined;
+  if ("fills" in node && Array.isArray(node.fills)) {
+    const imageFill = (node.fills as Paint[]).find((f) => f.type === "IMAGE") as ImagePaint | undefined;
+    if (imageFill?.imageHash) imageHash = imageFill.imageHash;
+  }
+
+  if (node.type === "VECTOR" || node.type === "BOOLEAN_OPERATION") {
+    return { domain, width: node.width, height: node.height, isSvg: true, nodeId: node.id };
+  }
+
+  return { domain, width: node.width, height: node.height, imageHash };
+}
+
+function extractCanvasSelection(): void {
+  const selection = figma.currentPage.selection;
+  const logos: CanvasLogo[] = [];
+
+  for (const node of selection) {
+    if (node.name === "Logo Soup" && "children" in node) {
+      for (const child of (node as ChildrenMixin).children) {
+        logos.push(extractNodeAsCanvasLogo(child as SceneNode));
+      }
+    } else {
+      logos.push(extractNodeAsCanvasLogo(node));
+    }
+  }
+
+  const hasExistingGrid = figma.currentPage.children.some(
+    (n) => n.name === "Logo Soup"
+  );
+
+  sendToUI({ type: "selection-detected", logos, hasExistingGrid });
+}
+
 figma.showUI(__html__, { themeColors: true, width: 360, height: 540 });
+extractCanvasSelection();
 
 figma.ui.onmessage = async (msg: UIMessage) => {
   switch (msg.type) {
