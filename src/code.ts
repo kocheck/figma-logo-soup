@@ -1,6 +1,7 @@
 import type { UIMessage, PluginMessage, LogoAnalysis, GridConfig, CanvasLogo } from "./utils/types";
 import { calculateGridLayout } from "./utils/grid-layout";
 import { calculateNudge } from "./utils/visual-center";
+import { calculateNormalizedWidth, calculateNormalizedHeight } from "./utils/normalize";
 
 const STORAGE_KEY_TOKEN = "logo-soup-api-token";
 
@@ -56,7 +57,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
       await handleSaveToken(msg.token);
       break;
     case "generate-grid":
-      await handleGenerateGrid(msg.config, msg.logos);
+      await handleGenerateGrid(msg.config, msg.logos, msg.appendToExisting, msg.canvasLogos);
       break;
   }
 };
@@ -73,38 +74,61 @@ async function handleSaveToken(token: string): Promise<void> {
 async function handleGenerateGrid(
   config: GridConfig,
   logos: LogoAnalysis[],
+  appendToExisting?: boolean,
+  canvasLogos?: CanvasLogo[],
 ): Promise<void> {
-  if (logos.length === 0) {
+  if (logos.length === 0 && (!canvasLogos || canvasLogos.length === 0)) {
     sendToUI({ type: "error", message: "No logos to generate" });
     return;
   }
 
   try {
-    // Create the parent frame with auto-layout wrap
-    const frame = figma.createFrame();
-    frame.name = "Logo Soup";
-    frame.layoutMode = "HORIZONTAL";
-    frame.layoutWrap = "WRAP";
-    frame.primaryAxisSizingMode = "FIXED";
-    frame.counterAxisSizingMode = "AUTO";
-    frame.itemSpacing = config.gap;
-    frame.counterAxisSpacing = config.gap;
-    frame.paddingLeft = config.gap;
-    frame.paddingRight = config.gap;
-    frame.paddingTop = config.gap;
-    frame.paddingBottom = config.gap;
-    frame.fills = [];
+    // Compute max item width across both Logo.dev logos and canvas logos
+    const allNormalizedWidths = [
+      ...logos.map((l) => l.normalizedWidth),
+      ...(canvasLogos ?? []).map((cl) =>
+        calculateNormalizedWidth(cl.width / cl.height, {
+          baseSize: config.baseSize,
+          scaleFactor: config.scaleFactor,
+          densityAware: false,
+          densityFactor: 0,
+        })
+      ),
+      config.baseSize,
+    ];
+    const maxItemWidth = Math.max(...allNormalizedWidths);
+    const frameWidth = maxItemWidth * config.columns + config.gap * (config.columns + 1);
+
+    let frame: FrameNode;
+    const existingFrame = appendToExisting
+      ? (figma.currentPage.children.find((n) => n.name === "Logo Soup") as FrameNode | undefined)
+      : undefined;
+
+    if (existingFrame) {
+      frame = existingFrame;
+    } else {
+      frame = figma.createFrame();
+      frame.name = "Logo Soup";
+      frame.layoutMode = "HORIZONTAL";
+      frame.layoutWrap = "WRAP";
+      frame.primaryAxisSizingMode = "FIXED";
+      frame.counterAxisSizingMode = "AUTO";
+      frame.itemSpacing = config.gap;
+      frame.counterAxisSpacing = config.gap;
+      frame.paddingLeft = config.gap;
+      frame.paddingRight = config.gap;
+      frame.paddingTop = config.gap;
+      frame.paddingBottom = config.gap;
+      frame.fills = [];
+      frame.resize(frameWidth, 100);
+    }
 
     // Calculate fixed width from grid layout
     const gridItems = calculateGridLayout(
       logos.map((l) => ({ width: l.normalizedWidth, height: l.normalizedHeight })),
       { columns: config.columns, gap: config.gap },
     );
-
-    // Set frame width based on columns and max logo width
-    const maxItemWidth = Math.max(...logos.map((l) => l.normalizedWidth));
-    const frameWidth = maxItemWidth * config.columns + config.gap * (config.columns + 1);
-    frame.resize(frameWidth, 100); // Height auto-adjusts
+    void gridItems; // used for layout reference only
 
     // Load font for potential error labels
     await figma.loadFontAsync({ family: "Inter", style: "Medium" });
@@ -128,9 +152,26 @@ async function handleGenerateGrid(
       }
     }
 
-    // Position the frame in the viewport
-    frame.x = Math.round(figma.viewport.center.x - frameWidth / 2);
-    frame.y = Math.round(figma.viewport.center.y);
+    // Place canvas-sourced logos (no network fetch needed)
+    for (const cl of canvasLogos ?? []) {
+      const aspectRatio = cl.width > 0 && cl.height > 0 ? cl.width / cl.height : 1;
+      const opts = {
+        baseSize: config.baseSize,
+        scaleFactor: config.scaleFactor,
+        densityAware: false as const,
+        densityFactor: 0,
+      };
+      const nw = calculateNormalizedWidth(aspectRatio, opts);
+      const nh = calculateNormalizedHeight(aspectRatio, opts);
+      const node = createCanvasLogoNode(cl, nw, nh);
+      frame.appendChild(node as Parameters<typeof frame.appendChild>[0]);
+    }
+
+    // Position the frame in the viewport (only for new frames)
+    if (!existingFrame) {
+      frame.x = Math.round(figma.viewport.center.x - frameWidth / 2);
+      frame.y = Math.round(figma.viewport.center.y);
+    }
 
     // Optionally convert to component
     let resultNode: SceneNode = frame;
@@ -184,6 +225,42 @@ async function handleGenerateGrid(
     const message = err instanceof Error ? err.message : "Unknown error";
     sendToUI({ type: "error", message });
   }
+}
+
+function createCanvasLogoNode(
+  logo: CanvasLogo,
+  normalizedWidth: number,
+  normalizedHeight: number,
+): SceneNode {
+  const w = Math.round(normalizedWidth);
+  const h = Math.round(normalizedHeight);
+
+  // SVG path: clone the original vector node and resize it
+  if (logo.isSvg && logo.nodeId) {
+    const original = figma.getNodeById(logo.nodeId);
+    if (original && "clone" in original) {
+      const cloned = (original as SceneNode & { clone(): SceneNode }).clone();
+      if ("resize" in cloned) {
+        (cloned as SceneNode & { resize(w: number, h: number): void }).resize(w, h);
+      }
+      return cloned;
+    }
+  }
+
+  // Image hash path: reuse existing image data, no network fetch
+  const container = figma.createFrame();
+  container.name = logo.domain;
+  container.resize(w, h);
+  container.fills = [];
+  container.clipsContent = true;
+
+  const rect = figma.createRectangle();
+  rect.name = `${logo.domain}-image`;
+  rect.resize(w, h);
+  rect.fills = [{ type: "IMAGE", imageHash: logo.imageHash ?? "", scaleMode: "FIT" }];
+
+  container.appendChild(rect);
+  return container;
 }
 
 async function createLogoNode(
