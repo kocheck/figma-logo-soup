@@ -519,6 +519,8 @@
 
     // Domain list state
     let domains = [];
+    const canvasLogoMap = new Map(); // domain → CanvasLogo metadata
+    let appendToExisting = false;
 
     // Analysis cache: URL → analysis result (survives regeneration)
     const logoCache = new Map();
@@ -545,6 +547,82 @@
     // ============================
     // Domain List Management
     // ============================
+
+    function showSelectionBanner(count) {
+      const existing = document.getElementById('selection-banner');
+      if (existing) existing.remove();
+
+      const banner = document.createElement('div');
+      banner.id = 'selection-banner';
+      banner.style.cssText = [
+        'background:var(--figma-color-bg-selected,#e8f0fe)',
+        'color:var(--figma-color-text,#333)',
+        'padding:8px 12px',
+        'font-size:11px',
+        'border-radius:4px',
+        'margin-bottom:8px',
+        'display:flex',
+        'justify-content:space-between',
+        'align-items:center',
+      ].join(';');
+
+      const text = document.createElement('span');
+      text.textContent = count + ' logo' + (count === 1 ? '' : 's') + ' imported from canvas selection';
+
+      const dismiss = document.createElement('button');
+      dismiss.textContent = '\u2715';
+      dismiss.setAttribute('aria-label', 'Dismiss');
+      dismiss.style.cssText = 'background:none;border:none;cursor:pointer;font-size:12px;padding:0 0 0 8px;';
+      dismiss.addEventListener('click', function() { banner.remove(); });
+
+      banner.appendChild(text);
+      banner.appendChild(dismiss);
+
+      const domainSection = document.querySelector('.section-domains') || document.getElementById('domain-list');
+      if (domainSection && domainSection.parentNode) {
+        domainSection.parentNode.insertBefore(banner, domainSection);
+      }
+    }
+
+    function renderAppendToggle() {
+      let toggle = document.getElementById('append-toggle');
+      if (!toggle) {
+        toggle = document.createElement('div');
+        toggle.id = 'append-toggle';
+        toggle.setAttribute('role', 'group');
+        toggle.setAttribute('aria-label', 'Grid placement');
+        toggle.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
+        const generateBtn = document.getElementById('generate-btn');
+        if (generateBtn && generateBtn.parentNode) {
+          generateBtn.parentNode.insertBefore(toggle, generateBtn);
+        }
+      }
+      while (toggle.firstChild) toggle.removeChild(toggle.firstChild);
+
+      function makeBtn(label, isAppend) {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        const active = isAppend === appendToExisting;
+        btn.style.cssText = [
+          'flex:1',
+          'padding:4px 8px',
+          'border-radius:4px',
+          'cursor:pointer',
+          'font-size:11px',
+          'border:1px solid var(--figma-color-border,#ccc)',
+          'background:' + (active ? 'var(--figma-color-bg-selected,#e8f0fe)' : 'var(--figma-color-bg,#fff)'),
+          'font-weight:' + (active ? '600' : '400'),
+        ].join(';');
+        btn.addEventListener('click', function() {
+          appendToExisting = isAppend;
+          renderAppendToggle();
+        });
+        return btn;
+      }
+
+      toggle.appendChild(makeBtn('New grid', false));
+      toggle.appendChild(makeBtn('Append to existing', true));
+    }
 
     function renderDomainList() {
       domainList.textContent = '';
@@ -573,7 +651,17 @@
 
         const name = document.createElement('span');
         name.className = 'domain-name';
-        name.textContent = domain;
+
+        if (canvasLogoMap.has(domain)) {
+          const badge = document.createElement('span');
+          badge.textContent = '\u229e';
+          badge.title = 'From canvas selection \u2014 no API key needed';
+          badge.setAttribute('aria-label', 'Canvas logo');
+          badge.style.cssText = 'font-size:9px;opacity:0.55;margin-right:4px;';
+          name.insertBefore(badge, name.firstChild);
+        }
+
+        name.appendChild(document.createTextNode(domain));
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
@@ -940,11 +1028,18 @@
         setProgress(domains.length, domains.length);
 
         // Phase 3: Send to plugin sandbox for Figma canvas generation
+        const canvasLogosToSend = domains
+          .filter(function(d) { return canvasLogoMap.has(d); })
+          .map(function(d) { return canvasLogoMap.get(d); });
+        const logosToFetch = logos.filter(function(l) { return !canvasLogoMap.has(l.domain); });
+
         parent.postMessage({
           pluginMessage: {
             type: 'generate-grid',
-            config,
-            logos,
+            config: config,
+            logos: logosToFetch,
+            canvasLogos: canvasLogosToSend,
+            appendToExisting: appendToExisting,
           },
         }, '*');
       } catch (err) {
@@ -1034,6 +1129,23 @@
             setTimeout(() => { tokenStatus.textContent = ''; }, 2000);
           }
           break;
+
+        case 'selection-detected': {
+          const { logos, hasExistingGrid } = msg;
+          if (logos.length > 0) {
+            logos.forEach(logo => {
+              if (!domains.includes(logo.domain)) {
+                canvasLogoMap.set(logo.domain, logo);
+                domains.unshift(logo.domain);
+              }
+            });
+            renderDomainList();
+            showSelectionBanner(logos.length);
+          }
+          appendToExisting = hasExistingGrid;
+          renderAppendToggle();
+          break;
+        }
 
         case 'progress':
           setStatus(`Placing ${msg.domain} (${msg.current}/${msg.total})...`);
