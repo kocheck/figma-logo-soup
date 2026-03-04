@@ -50,6 +50,16 @@ export interface LogoAnalysis {
   visualCenter: VisualCenter;
   normalizedWidth: number;
   normalizedHeight: number;
+  imageHash?: string;  // pre-fetched hash for canvas-sourced logos
+}
+
+export interface CanvasLogo {
+  domain: string;      // extracted from node name, or "unknown"
+  width: number;       // node.width (natural dimensions)
+  height: number;      // node.height
+  imageHash?: string;  // from image fill, if present
+  isSvg?: boolean;     // true for VectorNode
+  nodeId?: string;     // figma node ID, used for SVG cloning
 }
 
 export interface GridItem {
@@ -61,7 +71,7 @@ export interface GridItem {
 
 // Message protocol: UI → Plugin
 export type UIMessage =
-  | { type: "generate-grid"; config: GridConfig; logos: LogoAnalysis[] }
+  | { type: "generate-grid"; config: GridConfig; logos: LogoAnalysis[]; appendToExisting?: boolean; canvasLogos?: CanvasLogo[] }
   | { type: "save-token"; token: string }
   | { type: "load-token" };
 
@@ -70,4 +80,5 @@ export type PluginMessage =
   | { type: "token-loaded"; token: string | null }
   | { type: "progress"; current: number; total: number; domain: string }
   | { type: "complete" }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "selection-detected"; logos: CanvasLogo[]; hasExistingGrid: boolean };
