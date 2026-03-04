@@ -11,7 +11,8 @@ const mockFigma = {
   notify: vi.fn(),
   currentPage: {
     appendChild: vi.fn(),
-    selection: [],
+    selection: [] as unknown[],
+    children: [] as unknown[],
   },
   viewport: {
     scrollAndZoomIntoView: vi.fn(),
@@ -84,6 +85,7 @@ const mockFigma = {
     hash: "mock-image-hash-" + Math.random().toString(36).slice(2),
   })),
   loadFontAsync: vi.fn(async () => undefined),
+  getNodeById: vi.fn((_id: string) => null as unknown),
   clientStorage: {
     getAsync: vi.fn(async (key: string) => storage.get(key) ?? undefined),
     setAsync: vi.fn(async (key: string, value: unknown) => {
