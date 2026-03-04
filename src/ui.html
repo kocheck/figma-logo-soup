@@ -704,13 +704,7 @@
         return;
       }
 
-      const config = {
-        columns: parseInt(columnsInput.value, 10) || 4,
-        baseSize: parseInt(baseSizeInput.value, 10) || 48,
-        gap: parseInt(gapInput.value, 10) || 16,
-        scaleFactor: parseFloat(scaleFactorInput.value) || 0.5,
-        exportAsComponent: exportComponentCheck.checked,
-      };
+      const config = getConfig();
 
       generateBtn.disabled = true;
       generateBtn.classList.add('loading');
