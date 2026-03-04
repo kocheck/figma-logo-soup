@@ -247,6 +247,15 @@ function createCanvasLogoNode(
     }
   }
 
+  // If no imageHash is available, fall back to a placeholder frame
+  if (!logo.imageHash) {
+    const placeholder = figma.createFrame();
+    placeholder.name = `${logo.domain} (no image)`;
+    placeholder.resize(w, h);
+    placeholder.fills = [{ type: "SOLID", color: { r: 0.94, g: 0.94, b: 0.94 } }];
+    return placeholder;
+  }
+
   // Image hash path: reuse existing image data, no network fetch
   const container = figma.createFrame();
   container.name = logo.domain;
@@ -257,7 +266,7 @@ function createCanvasLogoNode(
   const rect = figma.createRectangle();
   rect.name = `${logo.domain}-image`;
   rect.resize(w, h);
-  rect.fills = [{ type: "IMAGE", imageHash: logo.imageHash ?? "", scaleMode: "FIT" }];
+  rect.fills = [{ type: "IMAGE", imageHash: logo.imageHash, scaleMode: "FIT" }];
 
   container.appendChild(rect);
   return container;
