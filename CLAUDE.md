@@ -1,7 +1,7 @@
 # Figma Logo Soup — Project Blueprint
 
 ## Overview
-A Figma Plugin that generates visually balanced logo grids on the Figma canvas using the Logo.dev API for logo sourcing and the Logo Soup normalization algorithm (PINF) for visual harmony. Inspired by [react-logo-soup](https://github.com/sanity-labs/react-logo-soup) by Sanity Labs.
+A Figma Plugin that generates visually balanced logo grids on the Figma canvas using the Logo Soup normalization algorithm (PINF) for visual harmony. Works with logos already on the canvas — no external API required. Inspired by [react-logo-soup](https://github.com/sanity-labs/react-logo-soup) by Sanity Labs.
 
 ## Architecture
 
@@ -21,22 +21,15 @@ figma-logo-soup/
 │   ├── utils/
 │   │   ├── types.ts             # Shared TypeScript types & message protocol
 │   │   ├── normalize.ts         # PINF formula
-│   │   ├── density.ts           # Pixel density analysis
-│   │   ├── crop.ts              # Content boundary detection
-│   │   ├── visual-center.ts     # Visual center of mass
-│   │   ├── url-builder.ts       # Logo.dev URL construction
 │   │   └── grid-layout.ts       # Grid position calculator
 ├── tests/
 │   ├── setup.ts                 # Figma API mocks
 │   ├── normalize.test.ts
-│   ├── density.test.ts
-│   ├── crop.test.ts
-│   ├── visual-center.test.ts
-│   ├── url-builder.test.ts
 │   ├── grid-layout.test.ts
 │   ├── code.test.ts             # Plugin sandbox tests
 │   ├── integration.test.ts      # Full flow tests
 │   ├── phase6.test.ts           # Phase 6 feature tests
+│   ├── canvas-selection.test.ts # Canvas selection workflow tests
 │   └── enhancements.test.ts     # v1.0 enhancement tests
 └── README.md
 ```
@@ -49,15 +42,13 @@ figma-logo-soup/
 ### Message Protocol (UI ↔ Plugin)
 ```
 UI → Plugin:
-  { type: 'generate-grid', config: GridConfig, logos: LogoAnalysis[] }
-  { type: 'save-token', token: string }
-  { type: 'load-token' }
+  { type: 'generate-grid', config: GridConfig, canvasLogos: CanvasLogo[], appendToExisting?: boolean }
 
 Plugin → UI:
-  { type: 'token-loaded', token: string | null }
   { type: 'progress', current: number, total: number, domain: string }
   { type: 'complete' }
   { type: 'error', message: string }
+  { type: 'selection-detected', logos: CanvasLogo[], hasExistingGrid: boolean }
 ```
 
 ### Key Algorithm: PINF (Proportional Image Normalization Formula)
@@ -74,20 +65,12 @@ normalizedHeight = normalizedWidth / aspectRatio
 - Dense logos scale down, light logos scale up
 - `densityFactor`: 0 = pure PINF, 1 = density dominant, 0.5 = balanced
 
-### Logo Source: Logo.dev Image CDN
-```
-https://img.logo.dev/{domain}?token={pk_...}&size={int}&format={png|jpg|webp}&theme={auto|light|dark}&greyscale={bool}
-```
-- Only use publishable token (`pk_...`), never secret key
-- Only use `img.logo.dev`, never `api.logo.dev`
-
 ## Conventions
 - TypeScript strict mode throughout
 - Build: esbuild (not webpack)
 - Test: Vitest with full coverage for all utility functions
 - UI: Plain HTML/CSS/JS (no React/Vue/Svelte)
-- Image fetching: `figma.createImageAsync(url)` in plugin sandbox
-- Token persistence: `figma.clientStorage.setAsync` / `getAsync`
+- Canvas-only workflow: logos are selected from the Figma canvas, no external API calls
 - Error handling: failed logos → placeholder rectangle with domain name text
 - Logo nodes named with domain (e.g., "stripe.com")
 - Parent frame named "Logo Soup" with auto-layout wrap
@@ -127,7 +110,9 @@ npm run typecheck      # tsc --noEmit
   - [x] Empty state for domain list
   - [x] Tooltips on Scale Factor and Density Factor
 
-**Total: 158 tests passing across 12 test files, 3.7kb dist/code.js**
+- [x] Remove Logo.dev API — canvas-only workflow, PINF normalization kept
+
+**Total: 82 tests passing across 8 test files, 3.3kb dist/code.js**
 
 ---
 
@@ -145,10 +130,6 @@ npm run typecheck      # tsc --noEmit
 
 ### Phase 2: Core Normalization Engine (Pure Logic)
 - `normalize.ts` — PINF formula + density compensation
-- `density.ts` — pixel density calculation from ImageData
-- `crop.ts` — content boundary detection from ImageData
-- `visual-center.ts` — visual center of mass calculation
-- `url-builder.ts` — Logo.dev CDN URL construction
 - `grid-layout.ts` — grid position calculator
 - `types.ts` — shared types
 - **Tests**: Full unit tests for every function with edge cases
@@ -156,16 +137,15 @@ npm run typecheck      # tsc --noEmit
 ### Phase 3: Plugin Sandbox Core (code.ts)
 - Main plugin entry point
 - Message handler dispatch
-- `figma.clientStorage` for API token persistence
 - Frame creation with auto-layout wrap
-- Image fetching via `figma.createImageAsync` + fill application
+- Canvas logo placement via PINF normalization
 - Error handling with placeholder rectangles
 - **Tests**: Mock `figma` global, test all handlers
 
 ### Phase 4: Plugin UI (ui.html)
 - Complete plugin interface with Figma-native theming
-- API Token input (persisted), Domain list, Grid config, Logo.dev options
-- Canvas-based logo analysis (density, bounds, visual center)
+- Domain list, Grid config options
+- Canvas selection detection and logo analysis
 - PostMessage integration
 - Progress/error feedback
 - **Tests**: Message serialization, config validation
@@ -181,4 +161,3 @@ npm run typecheck      # tsc --noEmit
 - Export as Figma component (exportAsComponent config flag)
 - Drag-to-reorder domain list in UI (HTML5 Drag and Drop API)
 - Visual center alignment nudging (calculateNudge + alignBy config: bounds/visual-center-x/y/xy)
-- Greyscale mode (already wired via greyscale checkbox → URL builder → Logo.dev API)

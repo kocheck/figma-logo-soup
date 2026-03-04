@@ -84,7 +84,6 @@ const mockFigma = {
   createImageAsync: vi.fn(async () => ({
     hash: "mock-image-hash-" + Math.random().toString(36).slice(2),
   })),
-  loadFontAsync: vi.fn(async () => undefined),
   getNodeById: vi.fn((_id: string) => null as unknown),
   clientStorage: {
     getAsync: vi.fn(async (key: string) => storage.get(key) ?? undefined),
