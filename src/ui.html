@@ -54,7 +54,6 @@
     }
 
     input[type="text"],
-    input[type="password"],
     input[type="number"],
     textarea,
     select {
@@ -209,19 +208,6 @@
       margin: var(--spacing-lg) 0;
     }
 
-    .token-row {
-      display: flex;
-      gap: var(--spacing-sm);
-    }
-
-    .token-row input {
-      flex: 1;
-    }
-
-    .token-row button {
-      flex-shrink: 0;
-    }
-
     .hidden {
       display: none;
     }
@@ -348,25 +334,6 @@
   </style>
 </head>
 <body>
-  <!-- API Token Section -->
-  <div class="section">
-    <h2>API Token</h2>
-    <div class="token-row">
-      <input
-        type="password"
-        id="token-input"
-        placeholder="pk_..."
-        autocomplete="off"
-        aria-label="Logo.dev API token"
-        aria-describedby="token-status"
-      />
-      <button class="btn-secondary" id="save-token-btn">Save</button>
-    </div>
-    <div class="status" id="token-status" role="status" aria-live="polite"></div>
-  </div>
-
-  <hr class="divider" />
-
   <!-- Domains Section -->
   <div class="section">
     <div class="section-header">
@@ -410,33 +377,6 @@
     </div>
   </div>
 
-  <!-- Logo.dev Options -->
-  <div class="section">
-    <h2>Logo Options</h2>
-    <div class="row">
-      <div class="field">
-        <label for="theme-select">Theme</label>
-        <select id="theme-select">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="auto">Auto</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="format-select">Format</label>
-        <select id="format-select">
-          <option value="png" selected>PNG</option>
-          <option value="jpg">JPG</option>
-          <option value="webp">WebP</option>
-        </select>
-      </div>
-    </div>
-    <div class="checkbox-row">
-      <input type="checkbox" id="greyscale-check" />
-      <label for="greyscale-check">Greyscale</label>
-    </div>
-  </div>
-
   <!-- Normalization Options -->
   <div class="section">
     <h2>Normalization</h2>
@@ -445,23 +385,6 @@
         <label for="scale-factor-input">Scale Factor <span class="tooltip" title="0 = same width, 1 = same height, 0.5 = balanced">?</span></label>
         <input type="number" id="scale-factor-input" value="0.5" min="0" max="1" step="0.1" />
       </div>
-      <div class="field">
-        <label for="density-factor-input">Density Factor <span class="tooltip" title="0 = pure aspect ratio, 1 = density dominant, 0.5 = balanced">?</span></label>
-        <input type="number" id="density-factor-input" value="0.5" min="0" max="1" step="0.1" />
-      </div>
-    </div>
-    <div class="checkbox-row">
-      <input type="checkbox" id="density-aware-check" checked />
-      <label for="density-aware-check">Density-Aware Scaling</label>
-    </div>
-    <div class="field">
-      <label for="align-by-select">Align By</label>
-      <select id="align-by-select">
-        <option value="bounds">Bounds (geometric center)</option>
-        <option value="visual-center-y" selected>Visual Center Y</option>
-        <option value="visual-center-x">Visual Center X</option>
-        <option value="visual-center-xy">Visual Center XY</option>
-      </select>
     </div>
   </div>
 
@@ -483,16 +406,10 @@
   </div>
   <div class="status" id="status-text" role="status" aria-live="polite"></div>
 
-  <!-- Hidden canvas for image analysis -->
-  <canvas id="analysis-canvas" class="hidden"></canvas>
-
   <script>
     // ============================
     // DOM References
     // ============================
-    const tokenInput = document.getElementById('token-input');
-    const saveTokenBtn = document.getElementById('save-token-btn');
-    const tokenStatus = document.getElementById('token-status');
     const domainList = document.getElementById('domain-list');
     const addDomainInput = document.getElementById('add-domain-input');
     const addDomainBtn = document.getElementById('add-domain-btn');
@@ -502,28 +419,17 @@
     const columnsInput = document.getElementById('columns-input');
     const baseSizeInput = document.getElementById('base-size-input');
     const gapInput = document.getElementById('gap-input');
-    const themeSelect = document.getElementById('theme-select');
-    const formatSelect = document.getElementById('format-select');
-    const greyscaleCheck = document.getElementById('greyscale-check');
     const scaleFactorInput = document.getElementById('scale-factor-input');
-    const densityFactorInput = document.getElementById('density-factor-input');
-    const densityAwareCheck = document.getElementById('density-aware-check');
-    const alignBySelect = document.getElementById('align-by-select');
     const exportComponentCheck = document.getElementById('export-component-check');
     const generateBtn = document.getElementById('generate-btn');
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     const statusText = document.getElementById('status-text');
-    const analysisCanvas = document.getElementById('analysis-canvas');
-    const ctx = analysisCanvas.getContext('2d');
 
     // Domain list state
     let domains = [];
     const canvasLogoMap = new Map(); // domain → CanvasLogo metadata
     let appendToExisting = false;
-
-    // Analysis cache: URL → analysis result (survives regeneration)
-    const logoCache = new Map();
 
     // ============================
     // Popular Logo Presets
@@ -630,7 +536,7 @@
       if (domains.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'domain-list-empty';
-        empty.textContent = 'No domains added yet. Type a domain below or click + Popular.';
+        empty.textContent = 'Select logos on the Figma canvas to get started';
         domainList.appendChild(empty);
         return;
       }
@@ -766,36 +672,9 @@
         columns: parseInt(columnsInput.value) || 4,
         baseSize: parseInt(baseSizeInput.value) || 48,
         gap: parseInt(gapInput.value) || 16,
-        theme: themeSelect.value,
-        greyscale: greyscaleCheck.checked,
-        format: formatSelect.value,
         scaleFactor: parseFloat(scaleFactorInput.value) || 0.5,
-        densityAware: densityAwareCheck.checked,
-        densityFactor: parseFloat(densityFactorInput.value) || 0.5,
         exportAsComponent: exportComponentCheck.checked,
-        alignBy: alignBySelect.value,
       };
-    }
-
-    function buildLogoUrl(domain, token, config) {
-      const cleanDomain = domain
-        .replace(/^https?:\/\//, '')
-        .replace(/\/+$/, '')
-        .trim()
-        .toLowerCase();
-
-      const params = new URLSearchParams({
-        token: token,
-        size: String(Math.min(Math.max(config.baseSize * 4, 128), 800)),
-        format: config.format,
-        theme: config.theme,
-      });
-
-      if (config.greyscale) {
-        params.set('greyscale', 'true');
-      }
-
-      return `https://img.logo.dev/${encodeURIComponent(cleanDomain)}?${params.toString()}`;
     }
 
     function setStatus(text, type = '') {
@@ -814,266 +693,43 @@
     }
 
     // ============================
-    // Image Analysis (Canvas-based)
-    // ============================
-
-    function loadImage(url) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-        img.src = url;
-      });
-    }
-
-    function getImageData(img) {
-      analysisCanvas.width = img.naturalWidth;
-      analysisCanvas.height = img.naturalHeight;
-      ctx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
-      ctx.drawImage(img, 0, 0);
-      try {
-        return ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
-      } catch (err) {
-        // CORS-tainted canvas — return blank ImageData as fallback
-        return new ImageData(img.naturalWidth || 1, img.naturalHeight || 1);
-      }
-    }
-
-    function calculateDensity(imageData) {
-      const { data, width, height } = imageData;
-      const total = width * height;
-      if (total === 0) return 0;
-
-      let weighted = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const alpha = data[i + 3];
-        if (alpha > 0) weighted += alpha / 255;
-      }
-      return weighted / total;
-    }
-
-    function detectContentBounds(imageData) {
-      const { data, width, height } = imageData;
-      let top = height, bottom = 0, left = width, right = 0;
-      let hasContent = false;
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const alpha = data[(y * width + x) * 4 + 3];
-          if (alpha > 10) {
-            hasContent = true;
-            if (y < top) top = y;
-            if (y > bottom) bottom = y;
-            if (x < left) left = x;
-            if (x > right) right = x;
-          }
-        }
-      }
-
-      if (!hasContent) {
-        return { top: 0, right: width - 1, bottom: height - 1, left: 0, width, height };
-      }
-
-      return { top, right, bottom, left, width: right - left + 1, height: bottom - top + 1 };
-    }
-
-    function calculateVisualCenter(imageData) {
-      const { data, width, height } = imageData;
-      const geoX = width / 2, geoY = height / 2;
-      const maxDist = Math.sqrt(3 * 255 * 255);
-      let totalWeight = 0, wX = 0, wY = 0;
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4;
-          const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
-          if (a === 0) continue;
-          const cd = Math.sqrt(r * r + g * g + b * b) / maxDist;
-          const w = Math.sqrt(cd) * (a / 255);
-          wX += x * w;
-          wY += y * w;
-          totalWeight += w;
-        }
-      }
-
-      if (totalWeight === 0) return { x: geoX, y: geoY, offsetX: 0, offsetY: 0 };
-
-      const vx = wX / totalWeight, vy = wY / totalWeight;
-      return { x: vx, y: vy, offsetX: vx - geoX, offsetY: vy - geoY };
-    }
-
-    function calculateNormalizedWidth(aspectRatio, scaleFactor, baseSize) {
-      if (aspectRatio <= 0) return baseSize;
-      return baseSize * Math.pow(aspectRatio, scaleFactor);
-    }
-
-    function applyDensityCompensation(size, density, meanDensity, densityFactor) {
-      if (densityFactor === 0 || meanDensity === 0 || density === 0) return size;
-      const ratio = meanDensity / density;
-      return size * Math.pow(ratio, densityFactor * 0.5);
-    }
-
-    async function analyzeLogo(domain, token, config) {
-      const url = buildLogoUrl(domain, token, config);
-
-      // Check cache — reuse analysis if same URL already fetched
-      if (logoCache.has(url)) {
-        const cached = logoCache.get(url);
-        const normalizedWidth = calculateNormalizedWidth(cached.aspectRatio, config.scaleFactor, config.baseSize);
-        return {
-          ...cached,
-          normalizedWidth,
-          normalizedHeight: normalizedWidth / Math.max(cached.aspectRatio, 0.01),
-        };
-      }
-
-      try {
-        const img = await loadImage(url);
-        const imageData = getImageData(img);
-        const density = calculateDensity(imageData);
-        const bounds = detectContentBounds(imageData);
-        const center = calculateVisualCenter(imageData);
-        const aspectRatio = bounds.width / Math.max(bounds.height, 1);
-
-        const normalizedWidth = calculateNormalizedWidth(
-          aspectRatio,
-          config.scaleFactor,
-          config.baseSize,
-        );
-        const normalizedHeight = normalizedWidth / Math.max(aspectRatio, 0.01);
-
-        const result = {
-          domain,
-          url,
-          naturalWidth: img.naturalWidth,
-          naturalHeight: img.naturalHeight,
-          aspectRatio,
-          density,
-          contentBounds: bounds,
-          visualCenter: center,
-          normalizedWidth,
-          normalizedHeight,
-        };
-
-        // Cache the analysis (keyed by URL)
-        logoCache.set(url, result);
-        return result;
-      } catch (err) {
-        // Return fallback analysis for failed images
-        return {
-          domain,
-          url,
-          naturalWidth: 128,
-          naturalHeight: 128,
-          aspectRatio: 1,
-          density: 0.5,
-          contentBounds: { top: 0, right: 127, bottom: 127, left: 0, width: 128, height: 128 },
-          visualCenter: { x: 64, y: 64, offsetX: 0, offsetY: 0 },
-          normalizedWidth: config.baseSize,
-          normalizedHeight: config.baseSize,
-        };
-      }
-    }
-
-    // ============================
     // Main Generate Flow
     // ============================
 
-    async function handleGenerate() {
-      const token = tokenInput.value.trim();
-      if (!token) {
-        setStatus('Please enter an API token', 'error');
+    function handleGenerate() {
+      const canvasLogos = Array.from(canvasLogoMap.values());
+
+      if (canvasLogos.length === 0) {
+        setStatus('Select logos on the Figma canvas to get started', 'error');
         return;
       }
 
-      if (domains.length === 0) {
-        setStatus('Please enter at least one domain', 'error');
-        return;
-      }
-
-      const config = getConfig();
+      const config = {
+        columns: parseInt(columnsInput.value, 10) || 4,
+        baseSize: parseInt(baseSizeInput.value, 10) || 48,
+        gap: parseInt(gapInput.value, 10) || 16,
+        scaleFactor: parseFloat(scaleFactorInput.value) || 0.5,
+        exportAsComponent: exportComponentCheck.checked,
+      };
 
       generateBtn.disabled = true;
       generateBtn.classList.add('loading');
       generateBtn.textContent = 'Generating...';
-      setStatus(`Analyzing ${domains.length} logos...`);
-      setProgress(0, domains.length);
+      setStatus('Generating grid on canvas...');
 
-      try {
-        // Phase 1: Analyze all logos in UI via canvas
-        const logos = [];
-        for (let i = 0; i < domains.length; i++) {
-          setStatus(`Analyzing ${domains[i]}...`);
-          setProgress(i, domains.length);
-          const analysis = await analyzeLogo(domains[i], token, config);
-          logos.push(analysis);
-        }
-
-        // Phase 2: Apply density compensation across all logos
-        if (config.densityAware) {
-          const densities = logos.map(l => l.density);
-          const meanDensity = densities.reduce((a, b) => a + b, 0) / densities.length;
-
-          for (const logo of logos) {
-            logo.normalizedWidth = applyDensityCompensation(
-              logo.normalizedWidth,
-              logo.density,
-              meanDensity,
-              config.densityFactor,
-            );
-            logo.normalizedHeight = logo.normalizedWidth / Math.max(logo.aspectRatio, 0.01);
-          }
-        }
-
-        setStatus('Generating grid on canvas...');
-        setProgress(domains.length, domains.length);
-
-        // Phase 3: Send to plugin sandbox for Figma canvas generation
-        const canvasLogosToSend = domains
-          .filter(function(d) { return canvasLogoMap.has(d); })
-          .map(function(d) { return canvasLogoMap.get(d); });
-        const logosToFetch = logos.filter(function(l) { return !canvasLogoMap.has(l.domain); });
-
-        parent.postMessage({
-          pluginMessage: {
-            type: 'generate-grid',
-            config: config,
-            logos: logosToFetch,
-            canvasLogos: canvasLogosToSend,
-            appendToExisting: appendToExisting,
-          },
-        }, '*');
-      } catch (err) {
-        setStatus(`Error: ${err.message}`, 'error');
-        generateBtn.disabled = false;
-        generateBtn.classList.remove('loading');
-        generateBtn.textContent = 'Generate Logo Soup';
-        setProgress(0, 0);
-      }
+      parent.postMessage({
+        pluginMessage: {
+          type: 'generate-grid',
+          config,
+          canvasLogos,
+          appendToExisting,
+        },
+      }, '*');
     }
 
     // ============================
     // Event Listeners
     // ============================
-
-    saveTokenBtn.onclick = () => {
-      const token = tokenInput.value.trim();
-      if (!token) {
-        tokenStatus.textContent = 'Token cannot be empty';
-        tokenStatus.className = 'status error';
-        return;
-      }
-      if (!token.startsWith('pk_')) {
-        tokenStatus.textContent = 'Token must start with pk_';
-        tokenStatus.className = 'status error';
-        return;
-      }
-      parent.postMessage({ pluginMessage: { type: 'save-token', token } }, '*');
-      tokenStatus.textContent = 'Token saved';
-      tokenStatus.className = 'status success';
-      setTimeout(() => { tokenStatus.textContent = ''; }, 2000);
-    };
 
     addDomainBtn.onclick = () => {
       const val = addDomainInput.value.trim();
@@ -1104,7 +760,7 @@
     };
 
     // Numeric input validation on blur — clamp to min/max
-    [columnsInput, baseSizeInput, gapInput, scaleFactorInput, densityFactorInput].forEach(input => {
+    [columnsInput, baseSizeInput, gapInput, scaleFactorInput].forEach(input => {
       input.addEventListener('blur', () => {
         const min = parseFloat(input.min);
         const max = parseFloat(input.max);
@@ -1124,15 +780,6 @@
       if (!msg) return;
 
       switch (msg.type) {
-        case 'token-loaded':
-          if (msg.token) {
-            tokenInput.value = msg.token;
-            tokenStatus.textContent = 'Token loaded';
-            tokenStatus.className = 'status success';
-            setTimeout(() => { tokenStatus.textContent = ''; }, 2000);
-          }
-          break;
-
         case 'selection-detected': {
           const { logos, hasExistingGrid } = msg;
           if (logos.length > 0) {
@@ -1179,9 +826,6 @@
 
     // Initialize empty domain list
     renderDomainList();
-
-    // Request stored token on load
-    parent.postMessage({ pluginMessage: { type: 'load-token' } }, '*');
   </script>
 </body>
 </html>
