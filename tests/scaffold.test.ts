@@ -13,7 +13,7 @@ describe("Phase 1: Project Scaffolding", () => {
     expect(manifest.main).toBe("dist/code.js");
     expect(manifest.ui).toBe("src/ui.html");
     expect(manifest.editorType).toContain("figma");
-    expect(manifest.networkAccess.allowedDomains).toEqual([]);
+    expect(manifest.networkAccess.allowedDomains).toEqual(["none"]);
     expect(manifest.documentAccess).toBe("dynamic-page");
   });
 
