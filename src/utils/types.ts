@@ -3,8 +3,6 @@
 export interface NormalizeOptions {
   baseSize: number;
   scaleFactor: number;
-  densityAware: boolean;
-  densityFactor: number;
 }
 
 export type AlignBy = "bounds" | "visual-center-x" | "visual-center-y" | "visual-center-xy";

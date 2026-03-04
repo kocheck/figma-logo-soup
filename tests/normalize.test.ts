@@ -2,16 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   calculateNormalizedWidth,
   calculateNormalizedHeight,
-  applyDensityCompensation,
-  calculateMeanDensity,
 } from "../src/utils/normalize";
 import type { NormalizeOptions } from "../src/utils/types";
 
 const defaults: NormalizeOptions = {
   baseSize: 48,
   scaleFactor: 0.5,
-  densityAware: true,
-  densityFactor: 0.5,
 };
 
 describe("calculateNormalizedWidth", () => {
@@ -72,7 +68,6 @@ describe("calculateNormalizedHeight", () => {
 
   it("with scaleFactor=1, all logos get same height (baseSize)", () => {
     const opts = { ...defaults, scaleFactor: 1 };
-    // width = 48 * ar, height = width / ar = 48
     expect(calculateNormalizedHeight(2, opts)).toBe(48);
     expect(calculateNormalizedHeight(0.5, opts)).toBe(48);
   });
@@ -85,55 +80,5 @@ describe("calculateNormalizedHeight", () => {
 
   it("handles zero aspect ratio gracefully", () => {
     expect(calculateNormalizedHeight(0, defaults)).toBe(48);
-  });
-});
-
-describe("applyDensityCompensation", () => {
-  it("returns original size when densityFactor is 0", () => {
-    expect(applyDensityCompensation(100, 0.8, 0.5, 0)).toBe(100);
-  });
-
-  it("returns original size when meanDensity is 0", () => {
-    expect(applyDensityCompensation(100, 0.8, 0, 0.5)).toBe(100);
-  });
-
-  it("returns original size when density is 0", () => {
-    expect(applyDensityCompensation(100, 0, 0.5, 0.5)).toBe(100);
-  });
-
-  it("scales down dense logos (density > mean)", () => {
-    const adjusted = applyDensityCompensation(100, 0.8, 0.4, 0.5);
-    expect(adjusted).toBeLessThan(100);
-  });
-
-  it("scales up light logos (density < mean)", () => {
-    const adjusted = applyDensityCompensation(100, 0.2, 0.4, 0.5);
-    expect(adjusted).toBeGreaterThan(100);
-  });
-
-  it("no adjustment when density equals mean", () => {
-    const adjusted = applyDensityCompensation(100, 0.5, 0.5, 0.5);
-    expect(adjusted).toBeCloseTo(100);
-  });
-
-  it("higher densityFactor produces stronger adjustment", () => {
-    const mild = applyDensityCompensation(100, 0.8, 0.4, 0.2);
-    const strong = applyDensityCompensation(100, 0.8, 0.4, 1.0);
-    // Both scale down, but strong adjustment should be more extreme
-    expect(Math.abs(100 - strong)).toBeGreaterThan(Math.abs(100 - mild));
-  });
-});
-
-describe("calculateMeanDensity", () => {
-  it("returns 0 for empty array", () => {
-    expect(calculateMeanDensity([])).toBe(0);
-  });
-
-  it("returns the single value for one-element array", () => {
-    expect(calculateMeanDensity([0.5])).toBe(0.5);
-  });
-
-  it("calculates average correctly", () => {
-    expect(calculateMeanDensity([0.2, 0.4, 0.6])).toBeCloseTo(0.4);
   });
 });
