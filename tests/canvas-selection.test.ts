@@ -8,9 +8,11 @@ async function loadCode() {
 }
 
 const defaultConfig: GridConfig = {
-  columns: 4, baseSize: 48, gap: 16, theme: "light", greyscale: false,
-  format: "png", scaleFactor: 0.5, densityAware: false, densityFactor: 0.5,
-  exportAsComponent: false, alignBy: "bounds",
+  columns: 4,
+  baseSize: 48,
+  gap: 16,
+  scaleFactor: 0.5,
+  exportAsComponent: false,
 };
 
 describe("extractCanvasSelection", () => {

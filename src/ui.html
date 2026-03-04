@@ -127,28 +127,6 @@
       font-size: 10px;
     }
 
-    .presets {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-
-    .preset-chip {
-      padding: 3px 8px;
-      border-radius: 12px;
-      background: var(--figma-color-bg-secondary, #f0f0f0);
-      color: var(--figma-color-text-secondary, #666);
-      font-size: 10px;
-      cursor: pointer;
-      border: none;
-      transition: background 0.15s;
-    }
-
-    .preset-chip:hover {
-      background: var(--figma-color-bg-hover, #e0e0e0);
-      color: var(--figma-color-text, #333);
-    }
-
     .checkbox-row {
       display: flex;
       align-items: center;
@@ -274,19 +252,6 @@
       color: var(--figma-color-text-danger, #f24822);
     }
 
-    .add-domain-row {
-      display: flex;
-      gap: 4px;
-    }
-
-    .add-domain-row input {
-      flex: 1;
-    }
-
-    .add-domain-row button {
-      flex-shrink: 0;
-    }
-
     /* Loading spinner on generate button */
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -339,20 +304,12 @@
     <div class="section-header">
       <h2>Logos</h2>
       <button class="btn-secondary" id="clear-all-btn">Clear</button>
-      <button class="btn-secondary" id="add-popular-btn">+ Popular</button>
     </div>
     <div class="field">
       <label>Domains</label>
       <div class="domain-list" id="domain-list" role="list" aria-label="Domain list">
         <!-- Populated by JS -->
       </div>
-      <div class="add-domain-row">
-        <input type="text" id="add-domain-input" placeholder="stripe.com" aria-label="Add domain" />
-        <button class="btn-secondary" id="add-domain-btn">Add</button>
-      </div>
-    </div>
-    <div class="presets" id="presets-container">
-      <!-- Populated by JS -->
     </div>
   </div>
 
@@ -411,11 +368,7 @@
     // DOM References
     // ============================
     const domainList = document.getElementById('domain-list');
-    const addDomainInput = document.getElementById('add-domain-input');
-    const addDomainBtn = document.getElementById('add-domain-btn');
     const clearAllBtn = document.getElementById('clear-all-btn');
-    const addPopularBtn = document.getElementById('add-popular-btn');
-    const presetsContainer = document.getElementById('presets-container');
     const columnsInput = document.getElementById('columns-input');
     const baseSizeInput = document.getElementById('base-size-input');
     const gapInput = document.getElementById('gap-input');
@@ -430,25 +383,6 @@
     let domains = [];
     const canvasLogoMap = new Map(); // domain → CanvasLogo metadata
     let appendToExisting = false;
-
-    // ============================
-    // Popular Logo Presets
-    // ============================
-    const POPULAR_LOGOS = [
-      'google.com', 'apple.com', 'stripe.com', 'github.com', 'figma.com',
-      'slack.com', 'notion.so', 'linear.app', 'vercel.com', 'shopify.com',
-      'spotify.com', 'airbnb.com', 'uber.com', 'netflix.com', 'twitch.tv',
-      'discord.com', 'dropbox.com', 'zoom.us', 'mongodb.com', 'cloudflare.com',
-    ];
-
-    // Render preset chips
-    POPULAR_LOGOS.forEach(domain => {
-      const chip = document.createElement('button');
-      chip.className = 'preset-chip';
-      chip.textContent = domain.replace(/\.\w+$/, '');
-      chip.onclick = () => addDomain(domain);
-      presetsContainer.appendChild(chip);
-    });
 
     // ============================
     // Domain List Management
@@ -628,7 +562,6 @@
             // Focus next item or input
             const nextItem = domainList.querySelector('.domain-item');
             if (nextItem) nextItem.focus();
-            else addDomainInput.focus();
           } else if (e.key === 'ArrowDown' && index < domains.length - 1) {
             e.preventDefault();
             const items = domainList.querySelectorAll('.domain-item');
@@ -642,25 +575,6 @@
 
         domainList.appendChild(item);
       });
-    }
-
-    function addDomain(domain) {
-      const clean = domain
-        .trim()
-        .toLowerCase()
-        .replace(/^https?:\/\//, '')
-        .replace(/\/+$/, '');
-      if (clean && !domains.includes(clean)) {
-        domains.push(clean);
-        renderDomainList();
-      }
-    }
-
-    function parseDomains(input) {
-      return input
-        .split(/[\n,]+/)
-        .map(d => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, ''))
-        .filter(d => d.length > 0);
     }
 
     // ============================
@@ -724,28 +638,6 @@
     // ============================
     // Event Listeners
     // ============================
-
-    addDomainBtn.onclick = () => {
-      const val = addDomainInput.value.trim();
-      if (val) {
-        // Support comma/newline-separated bulk add
-        const newDomains = parseDomains(val);
-        newDomains.forEach(d => addDomain(d));
-        addDomainInput.value = '';
-      }
-    };
-
-    addDomainInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        addDomainBtn.click();
-      }
-    });
-
-    addPopularBtn.onclick = () => {
-      const top8 = POPULAR_LOGOS.slice(0, 8);
-      top8.forEach(d => addDomain(d));
-    };
 
     clearAllBtn.onclick = () => {
       domains = [];
